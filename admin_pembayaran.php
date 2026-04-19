@@ -20,7 +20,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($hunianId === 0 || $bulan === '' || $jumlah === '') {
             $error = 'Semua field wajib diisi.';
         } else {
-            // BUG 8: Tidak ada pengecekan duplikat tagihan — tagihan bulan yang sama
             // bisa dibuat berkali-kali untuk penghuni yang sama
             $pdo->prepare("INSERT INTO pembayaran (hunian_id, bulan, jumlah) VALUES (?, ?, ?)")
                 ->execute([$hunianId, $bulan, (float)$jumlah]);
@@ -32,7 +31,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tglBayar = date('Y-m-d');
         $pdo->prepare("UPDATE pembayaran SET status = 'lunas', tanggal_bayar = ? WHERE id = ?")
             ->execute([$tglBayar, $id]);
-        // BUG: Flash message tidak diset sehingga tidak ada konfirmasi visual sukses
         header('Location: admin_pembayaran.php');
         exit;
     }
@@ -65,8 +63,8 @@ include __DIR__ . '/php/header.php';
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="form-group" style="margin:0;"><label>Bulan (YYYY-MM)</label><input type="month" name="bulan" required></div>
-                <div class="form-group" style="margin:0;"><label>Jumlah (Rp)</label><input type="number" name="jumlah" min="1" required></div>
+                <div class="form-group" style="margin:0;"><label>Bulan (YYYY-MM)</label><input type="text" name="bulan" placeholder="2025-01"></div>
+                <div class="form-group" style="margin:0;"><label>Jumlah (Rp)</label><input type="number" name="jumlah" min="1"></div>
                 <button type="submit" class="btn btn-success">Buat Tagihan</button>
             </form>
         </div>

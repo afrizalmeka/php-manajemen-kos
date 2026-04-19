@@ -6,8 +6,6 @@ initDatabase(getDB());
 require_once __DIR__ . '/php/auth.php';
 
 $pdo = getDB();
-// BUG 3: Query tidak mengambil semua kamar — ada filter status='kosong' yang tersembunyi
-// sehingga kamar yang terisi tidak tampil di daftar
 $kamarList = $pdo->query("SELECT * FROM kamar WHERE status = 'kosong' ORDER BY nomor")->fetchAll();
 
 $pageTitle = 'Daftar Kamar — KosKu';

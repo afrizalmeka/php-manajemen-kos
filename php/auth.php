@@ -8,7 +8,6 @@ function requireLogin(): void {
     }
 }
 
-// BUG 1: requireAdmin tidak memanggil requireLogin — halaman admin bisa diakses tanpa login
 function requireAdmin(): void {
     if ($_SESSION['user_role'] !== 'admin') {
         header('Location: index.php');

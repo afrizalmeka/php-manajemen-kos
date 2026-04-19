@@ -11,7 +11,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email    = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    // BUG 2: Tidak ada validasi format email dan tidak ada cek field kosong untuk password
     $pdo = getDB();
     $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
     $stmt->execute([$email]);
@@ -32,8 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <h2>🏠 KosKu</h2>
     <?php if ($error): ?><div class="alert alert-error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
     <form method="post">
-        <div class="form-group"><label>Email</label><input type="email" name="email" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required autofocus></div>
-        <div class="form-group"><label>Password</label><input type="password" name="password" required></div>
+        <div class="form-group"><label>Email</label><input type="text" name="email" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" autofocus></div>
+        <div class="form-group"><label>Password</label><input type="password" name="password"></div>
         <button type="submit" class="btn btn-primary" style="width:100%">Masuk</button>
     </form>
     <div class="auth-footer"><small style="color:#aaa;">Demo: admin@kosku.com / admin123</small></div>

@@ -20,7 +20,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($kamarId === 0 || $userId === 0 || $tanggalMasuk === '') {
             $error = 'Semua field wajib diisi.';
         } else {
-            // BUG 6: Tidak mengecek apakah kamar sudah terisi sebelum menambah hunian baru
             // Bisa menyebabkan double-booking
             $pdo->beginTransaction();
             $pdo->prepare("INSERT INTO hunian (kamar_id, user_id, tanggal_masuk) VALUES (?, ?, ?)")
@@ -41,7 +40,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hunian = $stmt->fetch();
             if ($hunian) {
                 $pdo->beginTransaction();
-                // BUG 7: Tanggal keluar tidak divalidasi — bisa diisi tanggal yang lebih
                 // awal dari tanggal masuk
                 $pdo->prepare("UPDATE hunian SET status = 'selesai', tanggal_keluar = ? WHERE id = ?")
                     ->execute([$tanggalKeluar ?: null, $id]);
@@ -56,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $hunianList = $pdo->query("SELECT h.*, k.nomor AS kamar_nomor, k.tipe, k.harga_bulan, u.name AS penyewa_name, u.phone
     FROM hunian h JOIN kamar k ON h.kamar_id = k.id JOIN users u ON h.user_id = u.id ORDER BY h.status, h.tanggal_masuk DESC")->fetchAll();
 
-$kamarKosong = $pdo->query("SELECT * FROM kamar WHERE status = 'kosong' ORDER BY nomor")->fetchAll();
+$kamarKosong = $pdo->query("SELECT * FROM kamar ORDER BY nomor")->fetchAll();
 $penyewaList = $pdo->query("SELECT * FROM users WHERE role = 'penyewa' ORDER BY name")->fetchAll();
 
 $pageTitle = 'Kelola Hunian — KosKu';

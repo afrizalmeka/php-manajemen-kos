@@ -18,7 +18,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $harga     = $_POST['harga_bulan'] ?? '';
         $fasilitas = trim($_POST['fasilitas'] ?? '');
 
-        // BUG 4: Tidak ada validasi input — field kosong langsung dimasukkan ke DB
         try {
             $pdo->prepare("INSERT INTO kamar (nomor, tipe, harga_bulan, fasilitas) VALUES (?, ?, ?, ?)")
                 ->execute([$nomor, $tipe, (float)$harga, $fasilitas]);
@@ -41,7 +40,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } elseif ($act === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
-        // BUG 5: Tidak mengecek apakah kamar masih memiliki penghuni aktif sebelum hapus
         $pdo->prepare("DELETE FROM kamar WHERE id = ?")->execute([$id]);
         $msg = 'Kamar berhasil dihapus.';
     }
@@ -69,7 +67,7 @@ include __DIR__ . '/php/header.php';
             <form method="post" style="display:grid;grid-template-columns:repeat(5,1fr) auto;gap:.75rem;align-items:end;">
                 <input type="hidden" name="action" value="<?= $editKamar ? 'edit' : 'add' ?>">
                 <?php if ($editKamar): ?><input type="hidden" name="id" value="<?= $editKamar['id'] ?>"><?php endif; ?>
-                <div class="form-group" style="margin:0;"><label>Nomor</label><input type="text" name="nomor" value="<?= htmlspecialchars($editKamar['nomor'] ?? '') ?>" required></div>
+                <div class="form-group" style="margin:0;"><label>Nomor</label><input type="text" name="nomor" value="<?= htmlspecialchars($editKamar['nomor'] ?? '') ?>"></div>
                 <div class="form-group" style="margin:0;"><label>Tipe</label>
                     <select name="tipe">
                         <?php foreach (['Standard','Premium','VIP'] as $t): ?>
@@ -77,7 +75,7 @@ include __DIR__ . '/php/header.php';
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="form-group" style="margin:0;"><label>Harga/Bulan</label><input type="number" name="harga_bulan" value="<?= $editKamar['harga_bulan'] ?? '' ?>" min="1" required></div>
+                <div class="form-group" style="margin:0;"><label>Harga/Bulan</label><input type="number" name="harga_bulan" value="<?= $editKamar['harga_bulan'] ?? '' ?>" min="1"></div>
                 <div class="form-group" style="margin:0;"><label>Fasilitas</label><input type="text" name="fasilitas" value="<?= htmlspecialchars($editKamar['fasilitas'] ?? '') ?>"></div>
                 <?php if ($editKamar): ?>
                 <div class="form-group" style="margin:0;"><label>Status</label>
