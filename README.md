@@ -23,9 +23,9 @@ Aplikasi manajemen kos-kosan berbasis PHP dan SQLite untuk keperluan pembelajara
    ```
 3. **Jalankan server PHP bawaan:**
    ```bash
-   php -S localhost:8001
+   php -S localhost:8003
    ```
-4. **Buka browser** dan akses `http://localhost:8001`
+4. **Buka browser** dan akses `http://localhost:8003`
 
 Database SQLite dibuat otomatis saat pertama kali diakses.
 
