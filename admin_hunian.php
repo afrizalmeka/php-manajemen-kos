@@ -48,9 +48,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$id]);
             $hunian = $stmt->fetch();
             if ($hunian) {
-                //validasi tanggal keluar
+                //validasi tanggal keluar 
                 $tanggalMasuk = $hunian['tanggal_masuk'];
                 if ($tanggalKeluar < $tanggalMasuk) {
+                    //validasi tanggal keluar tidak boleh kosong
                     $error = 'Tanggal keluar tidak boleh sebelum tanggal masuk.';
                 }                 
                 else {
