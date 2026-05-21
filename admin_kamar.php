@@ -102,7 +102,7 @@ include __DIR__ . '/php/header.php';
                     <td><?= htmlspecialchars($k['tipe']) ?></td>
                     <td>Rp <?= number_format($k['harga_bulan'], 0, ',', '.') ?></td>
                     <td><?= htmlspecialchars($k['fasilitas'] ?? '-') ?></td>
-                    <td><span class="badge <?= $k['status'] === 'terisi' ? 'badge-danger' : 'badge-success' ?>"><?= $k['status'] === 'terisi' ? 'Terisi' : 'Kosong' ?></span></td>
+                    <td><span class="badge <?= $k['status'] === 'terisi' ? 'badge-danger' : 'badge-success' ?>"><?= $k['status'] === 'terisi' ? 'terisi' : 'kosong' ?></span></td>
                     <td style="display:flex;gap:.4rem;">
                         <a href="admin_kamar.php?edit=<?= $k['id'] ?>" class="btn btn-primary btn-sm">Edit</a>
                         <form method="post" onsubmit="return confirm('Hapus kamar ini?')">
