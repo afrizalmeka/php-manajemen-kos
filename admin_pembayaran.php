@@ -27,13 +27,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } 
 
         else {
+
+        // cek apakah tagihan bulan tersebut sudah ada
+        $cek = $pdo->prepare(" SELECT COUNT(*) FROM pembayaran WHERE hunian_id = ? AND bulan = ?
+        ");
+    
+        $cek->execute([$hunianId, $bulan]);  
+        if ($cek->fetchColumn() > 0) {
+            $error = 'Tagihan untuk bulan tersebut sudah ada.';
+        }
+
+        else {
             // bisa dibuat berkali-kali untuk penghuni yang sama
             $pdo->prepare("INSERT INTO pembayaran (hunian_id, bulan, jumlah) VALUES (?, ?, ?)")
                 ->execute([$hunianId, $bulan, (float)$jumlah]);
             $msg = 'Tagihan berhasil ditambahkan.';
         }
+        }
 
-    } elseif ($act === 'bayar') {
+    } 
+        elseif ($act === 'bayar') {
         $id = (int)($_POST['id'] ?? 0);
         $tglBayar = date('Y-m-d');
         $pdo->prepare("UPDATE pembayaran SET status = 'lunas', tanggal_bayar = ? WHERE id = ?")
@@ -42,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 }
+
 
 $pembayaranList = $pdo->query("SELECT p.*, h.tanggal_masuk, k.nomor AS kamar_nomor, u.name AS penyewa_name
     FROM pembayaran p JOIN hunian h ON p.hunian_id = h.id JOIN kamar k ON h.kamar_id = k.id JOIN users u ON h.user_id = u.id
