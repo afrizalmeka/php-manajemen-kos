@@ -21,13 +21,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($kamarId === 0 || $userId === 0 || $tanggalMasuk === '') {
             $error = 'Semua field wajib diisi.';
         } else {
-            // Bisa menyebabkan double-booking
-            $pdo->beginTransaction();
-            $pdo->prepare("INSERT INTO hunian (kamar_id, user_id, tanggal_masuk) VALUES (?, ?, ?)")
-                ->execute([$kamarId, $userId, $tanggalMasuk]);
-            $pdo->prepare("UPDATE kamar SET status = 'terisi' WHERE id = ?")->execute([$kamarId]);
-            $pdo->commit();
-            $msg = 'Hunian berhasil ditambahkan.';
+
+            // Validasi Status Kamar
+            $stmt = $pdo->prepare("SELECT status FROM kamar WHERE id = ?");
+            $stmt->execute([$kamarId]);
+
+            $kamar = $stmt->fetch();
+
+            // Validasi Booking
+            if ($kamar && $kamar['status'] === 'terisi') {
+                $error = 'Kamar sudah terisi dan tidak dapat digunakan untuk hunian baru';
+            } else {
+                $pdo->beginTransaction();
+                $pdo->prepare("INSERT INTO hunian (kamar_id, user_id, tanggal_masuk) VALUES (?, ?, ?)")
+                    ->execute([$kamarId, $userId, $tanggalMasuk]);
+                $pdo->prepare("UPDATE kamar SET status = 'terisi' WHERE id = ?")
+                    ->execute([$kamarId]);
+                $pdo->commit();
+                $msg = 'Hunian berhasil ditambahkan.';
+            }
         }
     } elseif ($act === 'checkout') {
         $id           = (int)($_POST['id'] ?? 0);
