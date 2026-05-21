@@ -33,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     } elseif ($act === 'edit') {
+
         $id    = (int)($_POST['id'] ?? 0);
         $nomor = trim($_POST['nomor'] ?? '');
         $tipe  = trim($_POST['tipe'] ?? '');
@@ -40,26 +41,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fasilitas = trim($_POST['fasilitas'] ?? '');
         $status = $_POST['status'] ?? 'kosong';
 
-        //Perbaikan Bug Validasi ID Nomor untuk Edit Kamar
+        // Perbaikan Bug Validasi ID Nomor untuk Edit Kamar
         if ($nomor === '') {
             $error = 'Nomor kamar wajib diisi';
         } else {
-
             $pdo->prepare("UPDATE kamar SET nomor=?, tipe=?, harga_bulan=?, fasilitas=?, status=? WHERE id=?")
                 ->execute([$nomor, $tipe, (float)$harga, $fasilitas, $status, $id]);
             $msg = 'Kamar berhasil diperbarui.';
         }
     } elseif ($act === 'delete') {
+
         $id = (int)($_POST['id'] ?? 0);
 
-        //Menambahkan Validasi Delete Kamar
+        // Menambahkan Validasi Delete Kamar
         $stmt = $pdo->prepare("SELECT status FROM kamar WHERE id = ?");
         $stmt->execute([$id]);
-
         $kamar = $stmt->fetch();
+
         // Validasi Status Kamar
         if ($kamar && $kamar['status'] === 'terisi') {
             $error = 'Kamar tidak bisa dihapus karena masih terisi';
+        } else {
             $pdo->prepare("DELETE FROM kamar WHERE id = ?")->execute([$id]);
             $msg = 'Kamar berhasil dihapus.';
         }
