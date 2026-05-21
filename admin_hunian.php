@@ -34,18 +34,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tanggalKeluar = trim($_POST['tanggal_keluar'] ?? '');
         if ($id === 0) {
             $error = 'ID hunian tidak valid.';
-        } else {
+        }        
+        elseif (
+            !DateTime::createFromFormat('Y-m-d', $tanggalKeluar) ||
+            DateTime::createFromFormat('Y-m-d', $tanggalKeluar)->format('Y-m-d') !== $tanggalKeluar
+        ) {
+    
+            $error = 'Format tanggal keluar tidak valid.';
+    
+        }
+        else {
             $stmt = $pdo->prepare("SELECT * FROM hunian WHERE id = ?");
             $stmt->execute([$id]);
             $hunian = $stmt->fetch();
             if ($hunian) {
+                //validasi tanggal keluar 
+                $tanggalMasuk = $hunian['tanggal_masuk'];
+                if ($tanggalKeluar < $tanggalMasuk) {
+                    //validasi tanggal keluar tidak boleh kosong
+                    $error = 'Tanggal keluar tidak boleh sebelum tanggal masuk.';
+                }                 
+                else {
                 $pdo->beginTransaction();
+
                 // awal dari tanggal masuk
                 $pdo->prepare("UPDATE hunian SET status = 'selesai', tanggal_keluar = ? WHERE id = ?")
                     ->execute([$tanggalKeluar ?: null, $id]);
                 $pdo->prepare("UPDATE kamar SET status = 'kosong' WHERE id = ?")->execute([$hunian['kamar_id']]);
                 $pdo->commit();
                 $msg = 'Penyewa berhasil di-checkout.';
+                }
             }
         }
     }
