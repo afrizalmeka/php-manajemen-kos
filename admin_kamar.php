@@ -51,8 +51,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($act === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
-        $pdo->prepare("DELETE FROM kamar WHERE id = ?")->execute([$id]);
-        $msg = 'Kamar berhasil dihapus.';
+
+        //Menambahkan Validasi Delete Kamar
+        $stmt = $pdo->prepare("SELECT status FROM kamar WHERE id = ?");
+        $stmt->execute([$id]);
+        $kamar = $stmt->fetch();
+
+        //Validasi Status Kamar
+        if ($kamar && $kamar['status'] === 'terisi') {
+            $error = 'Kamar tidak bisa dihapus karena masih terisi';
+        } else {
+            $pdo->prepare("DELETE FROM kamar WHERE id = ?")->execute([$id]);
+            $msg = 'Kamar berhasil dihapus.';
+        }
     }
 }
 
