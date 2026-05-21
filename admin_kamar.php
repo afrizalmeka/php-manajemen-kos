@@ -55,12 +55,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         //Menambahkan Validasi Delete Kamar
         $stmt = $pdo->prepare("SELECT status FROM kamar WHERE id = ?");
         $stmt->execute([$id]);
-        $kamar = $stmt->fetch();
 
-        //Validasi Status Kamar
+        $kamar = $stmt->fetch();
+        // Validasi Status Kamar
         if ($kamar && $kamar['status'] === 'terisi') {
             $error = 'Kamar tidak bisa dihapus karena masih terisi';
-        } else {
             $pdo->prepare("DELETE FROM kamar WHERE id = ?")->execute([$id]);
             $msg = 'Kamar berhasil dihapus.';
         }
