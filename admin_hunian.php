@@ -51,11 +51,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hunian = $stmt->fetch();
             if ($hunian) {
 
-                 // validasi tanggal keluar
-                 $tanggalMasuk = $hunian['tanggal_masuk'];
-                if ($tanggalKeluar < $tanggalMasuk) {
-                 $error = 'Tanggal keluar tidak boleh sebelum tanggal masuk.';
-                } 
+                 // validasi tanggal keluar dan tidak boleh kosong
+                $tanggalMasuk = $hunian['tanggal_masuk'];
+                if (empty($tanggalKeluar)) {
+                    $error = 'Tanggal keluar tidak boleh kosong.';
+                } elseif ($tanggalKeluar < $tanggalMasuk) {
+                    $error = 'Tanggal keluar tidak boleh sebelum tanggal masuk.';
+                }
             }
                 else {
                 $pdo->beginTransaction();
