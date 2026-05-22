@@ -27,11 +27,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }   
         
         else {
+
+            // cek apakah tagihan bulan tersebut sudah ada
+            $cek = $pdo->prepare(" SELECT COUNT(*) FROM pembayaran WHERE hunian_id = ? AND bulan = ?
+            ");
+        
+            $cek->execute([$hunianId, $bulan]);  
+            if ($cek->fetchColumn() > 0) {
+                $error = 'Tagihan untuk bulan tersebut sudah ada.';
+            }
+
+        else {
             // bisa dibuat berkali-kali untuk penghuni yang sama
             $pdo->prepare("INSERT INTO pembayaran (hunian_id, bulan, jumlah) VALUES (?, ?, ?)")
                 ->execute([$hunianId, $bulan, (float)$jumlah]);
             $msg = 'Tagihan berhasil ditambahkan.';
         }
+    }
 
     } elseif ($act === 'bayar') {
         $id = (int)($_POST['id'] ?? 0);
