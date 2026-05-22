@@ -50,6 +50,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$id]);
             $hunian = $stmt->fetch();
             if ($hunian) {
+
+                 // validasi tanggal keluar
+                 $tanggalMasuk = $hunian['tanggal_masuk'];
+                if ($tanggalKeluar < $tanggalMasuk) {
+                 $error = 'Tanggal keluar tidak boleh sebelum tanggal masuk.';
+                } 
+            }
+                else {
                 $pdo->beginTransaction();
                 // awal dari tanggal masuk
                 $pdo->prepare("UPDATE hunian SET status = 'selesai', tanggal_keluar = ? WHERE id = ?")
