@@ -6,7 +6,15 @@ initDatabase(getDB());
 require_once __DIR__ . '/php/auth.php';
 
 $pdo = getDB();
-$kamarList = $pdo->query("SELECT * FROM kamar WHERE status = 'kosong' ORDER BY nomor")->fetchAll();
+$kamarList = $pdo->query("
+    SELECT * FROM kamar
+    ORDER BY 
+        CASE 
+            WHEN status = 'kosong' THEN 1
+            WHEN status = 'terisi' THEN 2
+        END,
+        nomor
+")->fetchAll();
 
 $pageTitle = 'Daftar Kamar — KosKu';
 include __DIR__ . '/php/header.php';
