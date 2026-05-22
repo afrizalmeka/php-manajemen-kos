@@ -19,12 +19,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($hunianId === 0 || $bulan === '' || $jumlah === '') {
             $error = 'Semua field wajib diisi.';
-        } else {
+        } 
+        //validasi Input bulan bisa bertipe data huruf
+        elseif (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $bulan)) 
+        {
+            $error = 'Format bulan harus YYYY-MM.';
+        }   
+        
+        else {
+
+            // cek apakah tagihan bulan tersebut sudah ada
+            $cek = $pdo->prepare(" SELECT COUNT(*) FROM pembayaran WHERE hunian_id = ? AND bulan = ?
+            ");
+        
+            $cek->execute([$hunianId, $bulan]);  
+            if ($cek->fetchColumn() > 0) {
+                $error = 'Tagihan untuk bulan tersebut sudah ada.';
+            }
+
+        else {
             // bisa dibuat berkali-kali untuk penghuni yang sama
             $pdo->prepare("INSERT INTO pembayaran (hunian_id, bulan, jumlah) VALUES (?, ?, ?)")
                 ->execute([$hunianId, $bulan, (float)$jumlah]);
             $msg = 'Tagihan berhasil ditambahkan.';
         }
+    }
 
     } elseif ($act === 'bayar') {
         $id = (int)($_POST['id'] ?? 0);
