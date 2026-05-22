@@ -21,7 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Semua field wajib diisi.';
         } 
         //validasi Input bulan bisa bertipe data huruf
-        elseif (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $bulan)) {
+        elseif (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $bulan)) 
+        {
             $error = 'Format bulan harus YYYY-MM.';
         }   
         
