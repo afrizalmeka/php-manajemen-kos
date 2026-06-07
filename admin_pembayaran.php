@@ -20,10 +20,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($hunianId === 0 || $bulan === '' || $jumlah === '') {
             $error = 'Semua field wajib diisi.';
         } else {
-            // bisa dibuat berkali-kali untuk penghuni yang sama
-            $pdo->prepare("INSERT INTO pembayaran (hunian_id, bulan, jumlah) VALUES (?, ?, ?)")
-                ->execute([$hunianId, $bulan, (float)$jumlah]);
-            $msg = 'Tagihan berhasil ditambahkan.';
+            $cekDuplikat = $pdo->prepare("SELECT id FROM pembayaran WHERE hunian_id = ? AND bulan = ?");
+            $cekDuplikat->execute([$hunianId, $bulan]);
+            if ($cekDuplikat->fetch()) {
+                $error = 'Tagihan bulan ini sudah ada untuk penghuni tersebut.';
+            } else {
+                $pdo->prepare("INSERT INTO pembayaran (hunian_id, bulan, jumlah) VALUES (?, ?, ?)")
+                    ->execute([$hunianId, $bulan, (float)$jumlah]);
+                $msg = 'Tagihan berhasil ditambahkan.';
+            }
         }
 
     } elseif ($act === 'bayar') {
