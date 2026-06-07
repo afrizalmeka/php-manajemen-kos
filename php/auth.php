@@ -9,6 +9,10 @@ function requireLogin(): void {
 }
 
 function requireAdmin(): void {
+    if (empty($_SESSION['user_id'])) {
+        header('Location: login.php');
+        exit;
+    }
     if ($_SESSION['user_role'] !== 'admin') {
         header('Location: index.php');
         exit;
