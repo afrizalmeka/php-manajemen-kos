@@ -12,18 +12,22 @@ $msg = ''; $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $act = $_POST['action'] ?? '';
 
-    if ($act === 'add') {
+   if ($act === 'add') {
         $nomor     = trim($_POST['nomor'] ?? '');
         $tipe      = trim($_POST['tipe'] ?? '');
         $harga     = $_POST['harga_bulan'] ?? '';
         $fasilitas = trim($_POST['fasilitas'] ?? '');
 
-        try {
-            $pdo->prepare("INSERT INTO kamar (nomor, tipe, harga_bulan, fasilitas) VALUES (?, ?, ?, ?)")
-                ->execute([$nomor, $tipe, (float)$harga, $fasilitas]);
-            $msg = 'Kamar berhasil ditambahkan.';
-        } catch (Exception $e) {
-            $error = 'Nomor kamar sudah ada.';
+        if ($nomor === '' || $harga === '' || (float)$harga <= 0) {
+            $error = 'Nomor kamar dan harga tidak boleh kosong.';
+        } else {
+            try {
+                $pdo->prepare("INSERT INTO kamar (nomor, tipe, harga_bulan, fasilitas) VALUES (?, ?, ?, ?)")
+                    ->execute([$nomor, $tipe, (float)$harga, $fasilitas]);
+                $msg = 'Kamar berhasil ditambahkan.';
+            } catch (Exception $e) {
+                $error = 'Nomor kamar sudah ada.';
+            }
         }
 
     } elseif ($act === 'edit') {
@@ -38,10 +42,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ->execute([$nomor, $tipe, (float)$harga, $fasilitas, $status, $id]);
         $msg = 'Kamar berhasil diperbarui.';
 
-    } elseif ($act === 'delete') {
+   } elseif ($act === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
-        $pdo->prepare("DELETE FROM kamar WHERE id = ?")->execute([$id]);
-        $msg = 'Kamar berhasil dihapus.';
+        $cek = $pdo->prepare("SELECT id FROM hunian WHERE kamar_id = ? AND status = 'aktif'");
+        $cek->execute([$id]);
+        if ($cek->fetch()) {
+            $error = 'Kamar tidak bisa dihapus karena masih ada penyewa aktif.';
+        } else {
+            $pdo->prepare("DELETE FROM kamar WHERE id = ?")->execute([$id]);
+            $msg = 'Kamar berhasil dihapus.';
+        }
     }
 }
 
