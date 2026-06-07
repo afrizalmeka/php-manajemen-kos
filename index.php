@@ -6,7 +6,21 @@ initDatabase(getDB());
 require_once __DIR__ . '/php/auth.php';
 
 $pdo = getDB();
-$kamarList = $pdo->query("SELECT * FROM kamar WHERE status = 'kosong' ORDER BY nomor")->fetchAll();
+
+// BUG-SESI-1 FIX: penyewa hanya lihat kamar miliknya sendiri
+if (!empty($_SESSION['user_id']) && $_SESSION['user_role'] === 'penyewa') {
+    $stmt = $pdo->prepare("
+        SELECT k.* FROM kamar k
+        JOIN hunian h ON k.id = h.kamar_id
+        WHERE h.user_id = ? AND h.status = 'aktif'
+        ORDER BY k.nomor
+    ");
+    $stmt->execute([$_SESSION['user_id']]);
+    $kamarList = $stmt->fetchAll();
+} else {
+    // Admin atau belum login → tampilkan semua kamar (BUG-KAMAR-1 sudah fix)
+    $kamarList = $pdo->query("SELECT * FROM kamar ORDER BY nomor")->fetchAll();
+}
 
 $pageTitle = 'Daftar Kamar — KosKu';
 include __DIR__ . '/php/header.php';
