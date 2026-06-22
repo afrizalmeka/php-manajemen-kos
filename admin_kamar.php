@@ -38,9 +38,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fasilitas = trim($_POST['fasilitas'] ?? '');
         $status = $_POST['status'] ?? 'kosong';
 
-        $pdo->prepare("UPDATE kamar SET nomor=?, tipe=?, harga_bulan=?, fasilitas=?, status=? WHERE id=?")
-            ->execute([$nomor, $tipe, (float)$harga, $fasilitas, $status, $id]);
-        $msg = 'Kamar berhasil diperbarui.';
+        if ($id === 0) {
+            $error = 'ID kamar tidak valid.';
+        } elseif ($nomor === '' || $harga === '' || (float)$harga <= 0) {
+            $error = 'Nomor kamar dan harga tidak boleh kosong.';
+        } else {
+            try {
+                $pdo->prepare("UPDATE kamar SET nomor=?, tipe=?, harga_bulan=?, fasilitas=?, status=? WHERE id=?")
+                    ->execute([$nomor, $tipe, (float)$harga, $fasilitas, $status, $id]);
+                $msg = 'Kamar berhasil diperbarui.';
+            } catch (Exception $e) {
+                $error = 'Nomor kamar sudah ada.';
+            }
+        }
 
     } elseif ($act === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
@@ -106,7 +116,7 @@ include __DIR__ . '/php/header.php';
             <form method="post" style="display:grid;grid-template-columns:repeat(5,1fr) auto;gap:.75rem;align-items:end;">
                 <input type="hidden" name="action" value="<?= $editKamar ? 'edit' : 'add' ?>">
                 <?php if ($editKamar): ?><input type="hidden" name="id" value="<?= $editKamar['id'] ?>"><?php endif; ?>
-                <div class="form-group" style="margin:0;"><label>Nomor</label><input type="text" name="nomor" value="<?= htmlspecialchars($editKamar['nomor'] ?? '') ?>"></div>
+                <div class="form-group" style="margin:0;"><label>Nomor</label><input type="text" name="nomor" value="<?= htmlspecialchars($editKamar['nomor'] ?? '') ?>" required></div>
                 <div class="form-group" style="margin:0;"><label>Tipe</label>
                     <select name="tipe">
                         <?php foreach (['Standard','Premium','VIP'] as $t): ?>
@@ -114,7 +124,7 @@ include __DIR__ . '/php/header.php';
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="form-group" style="margin:0;"><label>Harga/Bulan</label><input type="number" name="harga_bulan" value="<?= $editKamar['harga_bulan'] ?? '' ?>" min="1"></div>
+                <div class="form-group" style="margin:0;"><label>Harga/Bulan</label><input type="number" name="harga_bulan" value="<?= $editKamar['harga_bulan'] ?? '' ?>" min="1" required></div>
                 <div class="form-group" style="margin:0;"><label>Fasilitas</label><input type="text" name="fasilitas" value="<?= htmlspecialchars($editKamar['fasilitas'] ?? '') ?>"></div>
                 <?php if ($editKamar): ?>
                 <div class="form-group" style="margin:0;"><label>Status</label>
