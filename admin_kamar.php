@@ -44,13 +44,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } elseif ($act === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
-        $cek = $pdo->prepare("SELECT id FROM hunian WHERE kamar_id = ? AND status = 'aktif'");
-        $cek->execute([$id]);
-        if ($cek->fetch()) {
-            $error = 'Kamar tidak bisa dihapus karena masih ada penyewa aktif.';
+
+        if ($id === 0) {
+            $error = 'ID kamar tidak valid.';
         } else {
-            $pdo->prepare("DELETE FROM kamar WHERE id = ?")->execute([$id]);
-            $msg = 'Kamar berhasil dihapus.';
+            try {
+                $pdo->beginTransaction();
+
+                $driver     = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+                $lockSuffix = ($driver === 'sqlite') ? '' : ' FOR UPDATE';
+
+                $stmtKamar = $pdo->prepare("SELECT * FROM kamar WHERE id = ?" . $lockSuffix);
+                $stmtKamar->execute([$id]);
+                $kamar = $stmtKamar->fetch();
+
+                if (!$kamar) {
+                    $pdo->rollBack();
+                    $error = 'Kamar tidak ditemukan.';
+                } else {
+                    $cek = $pdo->prepare("SELECT id FROM hunian WHERE kamar_id = ? AND status = 'aktif'");
+                    $cek->execute([$id]);
+
+                    if ($cek->fetch()) {
+                        $pdo->rollBack();
+                        $error = 'Kamar tidak bisa dihapus karena masih ada penyewa aktif.';
+                    } else {
+                        $pdo->prepare("DELETE FROM kamar WHERE id = ?")->execute([$id]);
+                        $pdo->commit();
+                        $msg = 'Kamar berhasil dihapus.';
+                    }
+                }
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                $error = 'Kamar tidak bisa dihapus. Pastikan tidak ada data hunian (aktif maupun riwayat) yang masih terkait.';
+            }
         }
     }
 }
