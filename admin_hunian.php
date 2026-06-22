@@ -13,39 +13,90 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $act = $_POST['action'] ?? '';
 
     if ($act === 'add') {
-        $kamarId     = (int)($_POST['kamar_id'] ?? 0);
-        $userId      = (int)($_POST['user_id'] ?? 0);
+        $kamarId      = (int)($_POST['kamar_id'] ?? 0);
+        $userId       = (int)($_POST['user_id'] ?? 0);
         $tanggalMasuk = trim($_POST['tanggal_masuk'] ?? '');
 
         if ($kamarId === 0 || $userId === 0 || $tanggalMasuk === '') {
             $error = 'Semua field wajib diisi.';
+        } elseif (!DateTime::createFromFormat('Y-m-d', $tanggalMasuk)) {
+            $error = 'Format tanggal masuk tidak valid.';
         } else {
-            // Bisa menyebabkan double-booking
-            $pdo->beginTransaction();
-            $pdo->prepare("INSERT INTO hunian (kamar_id, user_id, tanggal_masuk) VALUES (?, ?, ?)")
-                ->execute([$kamarId, $userId, $tanggalMasuk]);
-            $pdo->prepare("UPDATE kamar SET status = 'terisi' WHERE id = ?")->execute([$kamarId]);
-            $pdo->commit();
-            $msg = 'Hunian berhasil ditambahkan.';
+            try {
+                $pdo->beginTransaction();
+
+                $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+                $lockSuffix = ($driver === 'sqlite') ? '' : ' FOR UPDATE';
+
+                $stmt = $pdo->prepare("SELECT * FROM kamar WHERE id = ?" . $lockSuffix);
+                $stmt->execute([$kamarId]);
+                $kamar = $stmt->fetch();
+
+                $stmtActive = $pdo->prepare("SELECT COUNT(*) FROM hunian WHERE kamar_id = ? AND status = 'aktif'");
+                $stmtActive->execute([$kamarId]);
+                $activeCount = (int)$stmtActive->fetchColumn();
+
+                if (!$kamar) {
+                    $pdo->rollBack();
+                    $error = 'Kamar tidak ditemukan.';
+                } elseif ($kamar['status'] !== 'kosong' || $activeCount > 0) {
+                    $pdo->rollBack();
+                    $error = 'Kamar ini sudah terisi / sedang dihuni. Silakan pilih kamar lain.';
+                } else {
+                    $pdo->prepare("INSERT INTO hunian (kamar_id, user_id, tanggal_masuk, status) VALUES (?, ?, ?, 'aktif')")
+                        ->execute([$kamarId, $userId, $tanggalMasuk]);
+                    $pdo->prepare("UPDATE kamar SET status = 'terisi' WHERE id = ?")->execute([$kamarId]);
+                    $pdo->commit();
+                    $msg = 'Hunian berhasil ditambahkan.';
+                }
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                $error = 'Gagal menambahkan hunian. Silakan coba lagi.';
+            }
         }
 
     } elseif ($act === 'checkout') {
-        $id           = (int)($_POST['id'] ?? 0);
+        $id            = (int)($_POST['id'] ?? 0);
         $tanggalKeluar = trim($_POST['tanggal_keluar'] ?? '');
+
         if ($id === 0) {
             $error = 'ID hunian tidak valid.';
         } else {
             $stmt = $pdo->prepare("SELECT * FROM hunian WHERE id = ?");
             $stmt->execute([$id]);
             $hunian = $stmt->fetch();
-            if ($hunian) {
-                $pdo->beginTransaction();
-                // awal dari tanggal masuk
-                $pdo->prepare("UPDATE hunian SET status = 'selesai', tanggal_keluar = ? WHERE id = ?")
-                    ->execute([$tanggalKeluar ?: null, $id]);
-                $pdo->prepare("UPDATE kamar SET status = 'kosong' WHERE id = ?")->execute([$hunian['kamar_id']]);
-                $pdo->commit();
-                $msg = 'Penyewa berhasil di-checkout.';
+
+            if (!$hunian) {
+                $error = 'Data hunian tidak ditemukan.';
+            } elseif ($hunian['status'] !== 'aktif') {
+                $error = 'Hunian ini sudah selesai sebelumnya.';
+            } elseif ($tanggalKeluar === '') {
+                $error = 'Tanggal keluar wajib diisi.';
+            } else {
+                $masuk  = DateTime::createFromFormat('Y-m-d', $hunian['tanggal_masuk']);
+                $keluar = DateTime::createFromFormat('Y-m-d', $tanggalKeluar);
+
+                if (!$keluar) {
+                    $error = 'Format tanggal keluar tidak valid.';
+                } elseif ($masuk && $keluar <= $masuk) {
+                    $error = 'Tanggal keluar harus setelah tanggal masuk (' . $hunian['tanggal_masuk'] . ').';
+                } else {
+                    try {
+                        $pdo->beginTransaction();
+                        $pdo->prepare("UPDATE hunian SET status = 'selesai', tanggal_keluar = ? WHERE id = ?")
+                            ->execute([$tanggalKeluar, $id]);
+                        $pdo->prepare("UPDATE kamar SET status = 'kosong' WHERE id = ?")->execute([$hunian['kamar_id']]);
+                        $pdo->commit();
+                        $msg = 'Penyewa berhasil di-checkout.';
+                    } catch (Throwable $e) {
+                        if ($pdo->inTransaction()) {
+                            $pdo->rollBack();
+                        }
+                        $error = 'Gagal memproses checkout. Silakan coba lagi.';
+                    }
+                }
             }
         }
     }
