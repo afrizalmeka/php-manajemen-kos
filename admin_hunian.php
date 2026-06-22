@@ -105,7 +105,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $hunianList = $pdo->query("SELECT h.*, k.nomor AS kamar_nomor, k.tipe, k.harga_bulan, u.name AS penyewa_name, u.phone
     FROM hunian h JOIN kamar k ON h.kamar_id = k.id JOIN users u ON h.user_id = u.id ORDER BY h.status, h.tanggal_masuk DESC")->fetchAll();
 
-$kamarKosong = $pdo->query("SELECT * FROM kamar ORDER BY nomor")->fetchAll();
+$kamarKosong = $pdo->query("SELECT k.* FROM kamar k
+    WHERE k.status = 'kosong'
+      AND NOT EXISTS (SELECT 1 FROM hunian h WHERE h.kamar_id = k.id AND h.status = 'aktif')
+    ORDER BY k.nomor")->fetchAll();
+
 $penyewaList = $pdo->query("SELECT * FROM users WHERE role = 'penyewa' ORDER BY name")->fetchAll();
 
 $pageTitle = 'Kelola Hunian — KosKu';
@@ -125,7 +129,7 @@ include __DIR__ . '/php/header.php';
                     <select name="kamar_id" required>
                         <option value="">-- Pilih Kamar --</option>
                         <?php foreach ($kamarKosong as $k): ?>
-                        <option value="<?= $k['id'] ?>"><?= htmlspecialchars($k['nomor']) ?> — <?= $k['tipe'] ?></option>
+                        <option value="<?= $k['id'] ?>"><?= htmlspecialchars($k['nomor']) ?> — <?= htmlspecialchars($k['tipe']) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -151,11 +155,11 @@ include __DIR__ . '/php/header.php';
                 <tbody>
                 <?php foreach ($hunianList as $h): ?>
                 <tr>
-                    <td><?= htmlspecialchars($h['kamar_nomor']) ?> (<?= $h['tipe'] ?>)</td>
+                    <td><?= htmlspecialchars($h['kamar_nomor']) ?> (<?= htmlspecialchars($h['tipe']) ?>)</td>
                     <td><?= htmlspecialchars($h['penyewa_name']) ?></td>
                     <td><?= htmlspecialchars($h['phone'] ?? '-') ?></td>
-                    <td><?= $h['tanggal_masuk'] ?></td>
-                    <td><?= $h['tanggal_keluar'] ?? '-' ?></td>
+                    <td><?= htmlspecialchars($h['tanggal_masuk']) ?></td>
+                    <td><?= htmlspecialchars($h['tanggal_keluar'] ?? '-') ?></td>
                     <td>Rp <?= number_format($h['harga_bulan'],0,',','.') ?></td>
                     <td><span class="badge <?= $h['status'] === 'aktif' ? 'badge-success' : 'badge-secondary' ?>"><?= $h['status'] === 'aktif' ? 'Aktif' : 'Selesai' ?></span></td>
                     <td>
@@ -163,7 +167,7 @@ include __DIR__ . '/php/header.php';
                         <form method="post" style="display:flex;gap:.3rem;align-items:center;" onsubmit="return confirm('Proses checkout?')">
                             <input type="hidden" name="action" value="checkout">
                             <input type="hidden" name="id" value="<?= $h['id'] ?>">
-                            <input type="date" name="tanggal_keluar" style="padding:.3rem;border:1px solid #ddd;border-radius:4px;">
+                            <input type="date" name="tanggal_keluar" min="<?= htmlspecialchars($h['tanggal_masuk']) ?>" style="padding:.3rem;border:1px solid #ddd;border-radius:4px;" required>
                             <button type="submit" class="btn btn-warning btn-sm">Checkout</button>
                         </form>
                         <?php else: ?>—<?php endif; ?>
