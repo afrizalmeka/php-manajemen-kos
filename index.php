@@ -20,8 +20,15 @@ if ($isPenyewa) {
 }
 
 $kamarList = [];
+$adaKosong = false;
 if (!$kamarSendiri) {
-    $kamarList = $pdo->query("SELECT * FROM kamar WHERE status = 'kosong' ORDER BY nomor")->fetchAll();
+    $kamarList = $pdo->query("SELECT * FROM kamar ORDER BY status, nomor")->fetchAll();
+    foreach ($kamarList as $k) {
+        if ($k['status'] === 'kosong') {
+            $adaKosong = true;
+            break;
+        }
+    }
 }
 
 $pageTitle = 'Daftar Kamar — KosKu';
@@ -57,7 +64,9 @@ include __DIR__ . '/php/header.php';
     <?php else: ?>
 
         <?php if (empty($kamarList)): ?>
-            <div class="alert alert-secondary">Belum ada kamar kosong yang tersedia saat ini.</div>
+            <div class="alert alert-secondary">Belum ada data kamar.</div>
+        <?php elseif (!$adaKosong): ?>
+            <div class="alert alert-secondary">Saat ini semua kamar sedang terisi, belum ada kamar kosong yang tersedia.</div>
         <?php endif; ?>
 
         <div class="kamar-grid">
