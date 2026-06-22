@@ -13,39 +13,90 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $act = $_POST['action'] ?? '';
 
     if ($act === 'add') {
-        $kamarId     = (int)($_POST['kamar_id'] ?? 0);
-        $userId      = (int)($_POST['user_id'] ?? 0);
+        $kamarId      = (int)($_POST['kamar_id'] ?? 0);
+        $userId       = (int)($_POST['user_id'] ?? 0);
         $tanggalMasuk = trim($_POST['tanggal_masuk'] ?? '');
 
         if ($kamarId === 0 || $userId === 0 || $tanggalMasuk === '') {
             $error = 'Semua field wajib diisi.';
+        } elseif (!DateTime::createFromFormat('Y-m-d', $tanggalMasuk)) {
+            $error = 'Format tanggal masuk tidak valid.';
         } else {
-            // Bisa menyebabkan double-booking
-            $pdo->beginTransaction();
-            $pdo->prepare("INSERT INTO hunian (kamar_id, user_id, tanggal_masuk) VALUES (?, ?, ?)")
-                ->execute([$kamarId, $userId, $tanggalMasuk]);
-            $pdo->prepare("UPDATE kamar SET status = 'terisi' WHERE id = ?")->execute([$kamarId]);
-            $pdo->commit();
-            $msg = 'Hunian berhasil ditambahkan.';
+            try {
+                $pdo->beginTransaction();
+
+                $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+                $lockSuffix = ($driver === 'sqlite') ? '' : ' FOR UPDATE';
+
+                $stmt = $pdo->prepare("SELECT * FROM kamar WHERE id = ?" . $lockSuffix);
+                $stmt->execute([$kamarId]);
+                $kamar = $stmt->fetch();
+
+                $stmtActive = $pdo->prepare("SELECT COUNT(*) FROM hunian WHERE kamar_id = ? AND status = 'aktif'");
+                $stmtActive->execute([$kamarId]);
+                $activeCount = (int)$stmtActive->fetchColumn();
+
+                if (!$kamar) {
+                    $pdo->rollBack();
+                    $error = 'Kamar tidak ditemukan.';
+                } elseif ($kamar['status'] !== 'kosong' || $activeCount > 0) {
+                    $pdo->rollBack();
+                    $error = 'Kamar ini sudah terisi / sedang dihuni. Silakan pilih kamar lain.';
+                } else {
+                    $pdo->prepare("INSERT INTO hunian (kamar_id, user_id, tanggal_masuk, status) VALUES (?, ?, ?, 'aktif')")
+                        ->execute([$kamarId, $userId, $tanggalMasuk]);
+                    $pdo->prepare("UPDATE kamar SET status = 'terisi' WHERE id = ?")->execute([$kamarId]);
+                    $pdo->commit();
+                    $msg = 'Hunian berhasil ditambahkan.';
+                }
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                $error = 'Gagal menambahkan hunian. Silakan coba lagi.';
+            }
         }
 
     } elseif ($act === 'checkout') {
-        $id           = (int)($_POST['id'] ?? 0);
+        $id            = (int)($_POST['id'] ?? 0);
         $tanggalKeluar = trim($_POST['tanggal_keluar'] ?? '');
+
         if ($id === 0) {
             $error = 'ID hunian tidak valid.';
         } else {
             $stmt = $pdo->prepare("SELECT * FROM hunian WHERE id = ?");
             $stmt->execute([$id]);
             $hunian = $stmt->fetch();
-            if ($hunian) {
-                $pdo->beginTransaction();
-                // awal dari tanggal masuk
-                $pdo->prepare("UPDATE hunian SET status = 'selesai', tanggal_keluar = ? WHERE id = ?")
-                    ->execute([$tanggalKeluar ?: null, $id]);
-                $pdo->prepare("UPDATE kamar SET status = 'kosong' WHERE id = ?")->execute([$hunian['kamar_id']]);
-                $pdo->commit();
-                $msg = 'Penyewa berhasil di-checkout.';
+
+            if (!$hunian) {
+                $error = 'Data hunian tidak ditemukan.';
+            } elseif ($hunian['status'] !== 'aktif') {
+                $error = 'Hunian ini sudah selesai sebelumnya.';
+            } elseif ($tanggalKeluar === '') {
+                $error = 'Tanggal keluar wajib diisi.';
+            } else {
+                $masuk  = DateTime::createFromFormat('Y-m-d', $hunian['tanggal_masuk']);
+                $keluar = DateTime::createFromFormat('Y-m-d', $tanggalKeluar);
+
+                if (!$keluar) {
+                    $error = 'Format tanggal keluar tidak valid.';
+                } elseif ($masuk && $keluar <= $masuk) {
+                    $error = 'Tanggal keluar harus setelah tanggal masuk (' . $hunian['tanggal_masuk'] . ').';
+                } else {
+                    try {
+                        $pdo->beginTransaction();
+                        $pdo->prepare("UPDATE hunian SET status = 'selesai', tanggal_keluar = ? WHERE id = ?")
+                            ->execute([$tanggalKeluar, $id]);
+                        $pdo->prepare("UPDATE kamar SET status = 'kosong' WHERE id = ?")->execute([$hunian['kamar_id']]);
+                        $pdo->commit();
+                        $msg = 'Penyewa berhasil di-checkout.';
+                    } catch (Throwable $e) {
+                        if ($pdo->inTransaction()) {
+                            $pdo->rollBack();
+                        }
+                        $error = 'Gagal memproses checkout. Silakan coba lagi.';
+                    }
+                }
             }
         }
     }
@@ -54,7 +105,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $hunianList = $pdo->query("SELECT h.*, k.nomor AS kamar_nomor, k.tipe, k.harga_bulan, u.name AS penyewa_name, u.phone
     FROM hunian h JOIN kamar k ON h.kamar_id = k.id JOIN users u ON h.user_id = u.id ORDER BY h.status, h.tanggal_masuk DESC")->fetchAll();
 
-$kamarKosong = $pdo->query("SELECT * FROM kamar ORDER BY nomor")->fetchAll();
+$kamarKosong = $pdo->query("SELECT k.* FROM kamar k
+    WHERE k.status = 'kosong'
+      AND NOT EXISTS (SELECT 1 FROM hunian h WHERE h.kamar_id = k.id AND h.status = 'aktif')
+    ORDER BY k.nomor")->fetchAll();
+
 $penyewaList = $pdo->query("SELECT * FROM users WHERE role = 'penyewa' ORDER BY name")->fetchAll();
 
 $pageTitle = 'Kelola Hunian — KosKu';
@@ -74,7 +129,7 @@ include __DIR__ . '/php/header.php';
                     <select name="kamar_id" required>
                         <option value="">-- Pilih Kamar --</option>
                         <?php foreach ($kamarKosong as $k): ?>
-                        <option value="<?= $k['id'] ?>"><?= htmlspecialchars($k['nomor']) ?> — <?= $k['tipe'] ?></option>
+                        <option value="<?= $k['id'] ?>"><?= htmlspecialchars($k['nomor']) ?> — <?= htmlspecialchars($k['tipe']) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -100,11 +155,11 @@ include __DIR__ . '/php/header.php';
                 <tbody>
                 <?php foreach ($hunianList as $h): ?>
                 <tr>
-                    <td><?= htmlspecialchars($h['kamar_nomor']) ?> (<?= $h['tipe'] ?>)</td>
+                    <td><?= htmlspecialchars($h['kamar_nomor']) ?> (<?= htmlspecialchars($h['tipe']) ?>)</td>
                     <td><?= htmlspecialchars($h['penyewa_name']) ?></td>
                     <td><?= htmlspecialchars($h['phone'] ?? '-') ?></td>
-                    <td><?= $h['tanggal_masuk'] ?></td>
-                    <td><?= $h['tanggal_keluar'] ?? '-' ?></td>
+                    <td><?= htmlspecialchars($h['tanggal_masuk']) ?></td>
+                    <td><?= htmlspecialchars($h['tanggal_keluar'] ?? '-') ?></td>
                     <td>Rp <?= number_format($h['harga_bulan'],0,',','.') ?></td>
                     <td><span class="badge <?= $h['status'] === 'aktif' ? 'badge-success' : 'badge-secondary' ?>"><?= $h['status'] === 'aktif' ? 'Aktif' : 'Selesai' ?></span></td>
                     <td>
@@ -112,7 +167,7 @@ include __DIR__ . '/php/header.php';
                         <form method="post" style="display:flex;gap:.3rem;align-items:center;" onsubmit="return confirm('Proses checkout?')">
                             <input type="hidden" name="action" value="checkout">
                             <input type="hidden" name="id" value="<?= $h['id'] ?>">
-                            <input type="date" name="tanggal_keluar" style="padding:.3rem;border:1px solid #ddd;border-radius:4px;">
+                            <input type="date" name="tanggal_keluar" min="<?= htmlspecialchars($h['tanggal_masuk']) ?>" style="padding:.3rem;border:1px solid #ddd;border-radius:4px;" required>
                             <button type="submit" class="btn btn-warning btn-sm">Checkout</button>
                         </form>
                         <?php else: ?>—<?php endif; ?>
